@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Universal AI - Final Fixed</title>
+    
+    <!-- 1. TAILWIND CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        gemini: {
+                            light: '#ffffff',
+                            dark: '#131314',
+                            sidebarLight: '#f0f4f9',
+                            sidebarDark: '#1e1f20',
+                            accent: '#4b90ff'
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- 2. ICONS & FONTS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <!-- 3. MARKDOWN & UTILS -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        
+        /* Markdown Styling */
+        .prose pre { background-color: #1e1e1e !important; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin: 0.5rem 0; }
+        .prose code { color: #eb5757; background: rgba(0,0,0,0.05); padding: 2px 4px; border-radius: 4px; font-size: 0.9em; }
+        .dark .prose code { color: #ffabac; background: rgba(255,255,255,0.1); }
+        .prose pre code { color: inherit; background: transparent; padding: 0; }
+        
+        /* Loading Screen */
+        #loading { position: fixed; inset: 0; background: white; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 15px; }
+        .spinner { width: 40px; height: 40px; border: 3px solid #f3f3f3; border-top: 3px solid #2563eb; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Mobile Fixes */
+        .h-dvh { height: 100dvh; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-white dark:bg-gemini-dark text-gray-800 dark:text-gray-100 transition-colors duration-200 overflow-hidden">
+
+    <!-- INITIAL LOADER -->
+    <div id="loading">
+        <div class="spinner"></div>
+        <div class="text-gray-500 font-medium text-sm">Loading Universal AI...</div>
+    </div>
+
+    <!-- APP WRAPPER -->
+    <div id="app" class="flex h-dvh w-full hidden">
+        
+        <!-- SIDEBAR -->
+        <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-72 bg-gemini-sidebarLight dark:bg-gemini-sidebarDark transform -translate-x-full md:translate-x-0 transition-transform duration-300 flex flex-col border-r border-gray-200 dark:border-gray-700 md:static shadow-2xl md:shadow-none">
+            
+            <!-- Sidebar Header -->
+            <div class="p-4 flex items-center justify-between">
+                <div class="flex items-center gap-2 font-bold text-lg tracking-tight">
+                    <span class="bg-gradient-to-r from-blue-500 to-purple-500 text-transparent bg-clip-text">Universal AI</span>
+                </div>
+                <button onclick="app.toggleSidebar()" class="md:hidden text-gray-500 p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- New Chat Action -->
+            <div class="px-4 mb-2">
+                <button onclick="app.createNewChat()" class="w-full py-3 px-4 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-full flex items-center gap-3 text-sm font-medium transition-colors text-gray-700 dark:text-gray-200">
+                    <i class="fa-solid fa-plus text-gray-500"></i>
+                    New Chat
+                </button>
+            </div>
+
+            <!-- Chat History -->
+            <div class="flex-1 overflow-y-auto px-2 py-2 space-y-1" id="chatHistoryList">
+                <!-- History Items Injected Here -->
+            </div>
+
+            <!-- Sidebar Footer -->
+            <div class="p-4 border-t border-gray-200 dark:border-gray-700 space-y-1">
+                <button onclick="app.toggleSettings()" class="w-full flex items-center gap-3 p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-sm transition-colors">
+                    <i class="fa-solid fa-key text-blue-500"></i>
+                    <span>API Keys & Settings</span>
+                </button>
+                <button onclick="app.toggleTheme()" class="w-full flex items-center gap-3 p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-sm transition-colors">
+                    <i id="themeIcon" class="fa-solid fa-moon"></i>
+                    <span id="themeText">Dark Mode</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- MAIN AREA -->
+        <main class="flex-1 flex flex-col h-full relative w-full bg-white dark:bg-gemini-dark">
+            
+            <!-- Mobile Header -->
+            <header class="flex md:hidden items-center justify-between p-3 border-b border-gray-100 dark:border-gray-800 sticky top-0 bg-white dark:bg-gemini-dark z-20">
+                <button onclick="app.toggleSidebar()" class="text-gray-600 dark:text-gray-300 p-2">
+                    <i class="fa-solid fa-bars text-lg"></i>
+                </button>
+                <span class="font-semibold text-sm" id="mobileHeaderTitle">Universal AI</span>
+                <div class="w-8"></div>
+            </header>
+
+            <!-- Model Info (Desktop) -->
+            <div class="hidden md:flex items-center justify-center pt-2 pb-1">
+                <button onclick="app.toggleSettings()" class="flex items-center gap-2 text-xs text-gray-400 hover:text-blue-500 transition-colors px-3 py-1 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <span id="currentModelDisplay">Checking Model...</span>
+                    <i class="fa-solid fa-chevron-down"></i>
+                </button>
+            </div>
+
+            <!-- Chat Scroll Area -->
+            <div id="chatContainer" class="flex-1 overflow-y-auto p-4 pb-32 md:pb-40 scroll-smooth">
+                
+                <!-- Welcome / Empty State -->
+                <div id="welcomeState" class="h-full flex flex-col items-center justify-center transition-all duration-500">
+                    <div class="w-16 h-16 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-2xl mb-6 shadow-lg animate-pulse-slow"></div>
+                    <h1 class="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 mb-2">Hello.</h1>
+                    <p class="text-gray-400 text-center max-w-sm">Set your API key in settings to begin.</p>
+                </div>
+                
+                <!-- Messages List -->
+                <div id="messagesList" class="max-w-3xl mx-auto flex flex-col gap-6 w-full hidden"></div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-white via-white to-transparent dark:from-gemini-dark dark:via-gemini-dark pt-12 pb-6 px-4 z-30">
+                <div class="max-w-3xl mx-auto relative">
+                    <div class="bg-gray-100 dark:bg-gemini-sidebarDark rounded-3xl border border-transparent focus-within:border-gray-300 dark:focus-within:border-gray-600 focus-within:bg-white dark:focus-within:bg-gray-900 transition-all shadow-sm flex flex-col">
+                        <textarea id="promptInput" rows="1" 
+                            class="w-full bg-transparent border-none text-gray-800 dark:text-gray-100 px-5 py-4 focus:ring-0 resize-none max-h-32 scrollbar-hide text-base"
+                            placeholder="Ask anything..."
+                            style="min-height: 56px;"></textarea>
+                        
+                        <div class="flex justify-between items-center px-3 pb-3">
+                            <div class="text-xs text-gray-400 px-2" id="activeKeyIndicator">No Key Selected</div>
+                            <button id="sendBtn" onclick="app.sendMessage()" class="bg-blue-600 text-white w-10 h-10 rounded-full hover:bg-blue-700 flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                                <i class="fa-solid fa-paper-plane text-sm"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- SETTINGS MODAL -->
+    <div id="settingsModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 w-full max-w-xl rounded-2xl shadow-2xl flex flex-col max-h-[90dvh] overflow-hidden">
+            
+            <!-- Modal Header -->
+            <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900">
+                <h2 class="text-lg font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-blue-500"></i> Settings
+                </h2>
+                <button onclick="app.toggleSettings()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- Modal Body -->
+            <div class="p-6 overflow-y-auto space-y-8">
+                
+                <!-- 1. API Key Manager (Multiple Slots) -->
+                <div class="space-y-3">
+                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                        🔑 API Key Manager
+                    </label>
+                    <div class="bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+                        
+                        <!-- Add New Key -->
+                        <div class="flex flex-col gap-3 mb-4">
+                            <div class="grid grid-cols-3 gap-2">
+                                <input type="text" id="newKeyLabel" placeholder="Label (e.g. Work)" class="col-span-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+                                <input type="password" id="newKeyValue" placeholder="sk-or-..." class="col-span-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+                            </div>
+                            <button onclick="app.addApiKey()" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded text-sm font-medium transition-colors">
+                                <i class="fa-solid fa-plus mr-1"></i> Add Key Slot
+                            </button>
+                        </div>
+
+                        <!-- Key List -->
+                        <div class="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Saved Keys (Click to Activate)</div>
+                        <div id="apiKeyList" class="space-y-2 max-h-40 overflow-y-auto pr-1">
+                            <!-- Keys injected by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Model Configuration -->
+                <div class="space-y-3">
+                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">🤖 AI Model</label>
+                    <input type="text" id="modelInput" class="w-full bg-transparent border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. deepseek/deepseek-r1:free">
+                </div>
+
+                <!-- 3. System Prompt -->
+                <div class="space-y-3">
+                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">🧠 System Instructions</label>
+                    <textarea id="systemPromptInput" rows="3" class="w-full bg-transparent border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none"></textarea>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-5 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex justify-end gap-3">
+                <button onclick="app.toggleSettings()" class="px-5 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors">Cancel</button>
+                <button onclick="app.saveSettings()" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-transform active:scale-95 shadow-lg shadow-blue-500/30">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN LOGIC -->
+    <script>
+        // --- CONFIG ---
+        const DEFAULT_MODEL = "deepseek/deepseek-r1:free";
+        const DEFAULT_SYSTEM = "You are a helpful, intelligent assistant.";
+
+        // --- STATE MANAGEMENT ---
+        const AppState = {
+            chats: [],
+            currentChatId: null,
+            settings: {
+                model: DEFAULT_MODEL,
+                systemPrompt: DEFAULT_SYSTEM,
+                theme: 'light',
+                apiKeys: [] // Array of { id, label, key, active }
+            },
+            isGenerating: false
+        };
+
+        // --- DOM ELEMENTS ---
+        const els = {
+            loading: document.getElementById('loading'),
+            app: document.getElementById('app'),
+            sidebar: document.getElementById('sidebar'),
+            messagesList: document.getElementById('messagesList'),
+            welcomeState: document.getElementById('welcomeState'),
+            promptInput: document.getElementById('promptInput'),
+            sendBtn: document.getElementById('sendBtn'),
+            chatHistoryList: document.getElementById('chatHistoryList'),
+            settingsModal: document.getElementById('settingsModal'),
+            modelInput: document.getElementById('modelInput'),
+            systemPromptInput: document.getElementById('systemPromptInput'),
+            currentModelDisplay: document.getElementById('currentModelDisplay'),
+            themeIcon: document.getElementById('themeIcon'),
+            themeText: document.getElementById('themeText'),
+            apiKeyList: document.getElementById('apiKeyList'),
+            newKeyLabel: document.getElementById('newKeyLabel'),
+            newKeyValue: document.getElementById('newKeyValue'),
+            activeKeyIndicator: document.getElementById('activeKeyIndicator')
+        };
+
+        // --- CORE APPLICATION ---
+        const app = {
+            init() {
+                this.loadState();
+                this.applyTheme();
+                this.updateActiveKeyIndicator();
+                
+                // Remove Loader
+                setTimeout(() => {
+                    els.loading.style.opacity = '0';
+                    setTimeout(() => els.loading.style.display = 'none', 300);
+                    els.app.classList.remove('hidden');
+                    
+                    this.renderHistory();
+                    if (AppState.chats.length > 0) {
+                        this.loadChat(AppState.chats[0].id);
+                    } else {
+                        this.createNewChat();
+                    }
+                }, 600);
+
+                // Event Listeners
+                els.promptInput.addEventListener('input', () => {
+                    els.promptInput.style.height = 'auto';
+                    els.promptInput.style.height = Math.min(els.promptInput.scrollHeight, 150) + 'px';
+                });
+
+                els.promptInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendMessage();
+                    }
+                });
+            },
+
+            // --- DATA PERSISTENCE ---
+            loadState() {
+                const savedChats = localStorage.getItem('uni_ai_chats');
+                const savedSettings = localStorage.getItem('uni_ai_settings');
+
+                if (savedChats) AppState.chats = JSON.parse(savedChats);
+                if (savedSettings) {
+                    const parsed = JSON.parse(savedSettings);
+                    AppState.settings = { ...AppState.settings, ...parsed };
+
+                    // MIGRATION: Convert old single key to new slot system
+                    if (parsed.apiKey && (!parsed.apiKeys || parsed.apiKeys.length === 0)) {
+                        AppState.settings.apiKeys = [{
+                            id: Date.now(),
+                            label: "Legacy Key",
+                            key: parsed.apiKey,
+                            active: true
+                        }];
+                        delete AppState.settings.apiKey;
+                        this.saveState();
+                    }
+                }
+            },
+
+            saveState() {
+                localStorage.setItem('uni_ai_chats', JSON.stringify(AppState.chats));
+                localStorage.setItem('uni_ai_settings', JSON.stringify(AppState.settings));
+                this.updateActiveKeyIndicator();
+            },
+
+            // --- UI ACTIONS ---
+            toggleSidebar() {
+                els.sidebar.classList.toggle('-translate-x-full');
+            },
+
+            toggleTheme() {
+                AppState.settings.theme = AppState.settings.theme === 'dark' ? 'light' : 'dark';
+                this.applyTheme();
+                this.saveState();
+            },
+
+            applyTheme() {
+                const isDark = AppState.settings.theme === 'dark';
+                document.documentElement.classList.toggle('dark', isDark);
+                els.themeIcon.className = isDark ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+                els.themeText.innerText = isDark ? 'Light Mode' : 'Dark Mode';
+            },
+
+            toggleSettings() {
+                const isHidden = els.settingsModal.classList.contains('hidden');
+                if (isHidden) {
+                    els.modelInput.value = AppState.settings.model;
+                    els.systemPromptInput.value = AppState.settings.systemPrompt;
+                    this.renderApiKeyList();
+                    els.settingsModal.classList.remove('hidden');
+                } else {
+                    els.settingsModal.classList.add('hidden');
+                }
+            },
+
+            updateActiveKeyIndicator() {
+                const active = AppState.settings.apiKeys.find(k => k.active);
+                els.currentModelDisplay.innerText = AppState.settings.model.split('/')[1] || AppState.settings.model;
+                if(active) {
+                    els.activeKeyIndicator.innerHTML = `<span class="text-green-600 font-medium">• ${active.label}</span>`;
+                } else {
+                    els.activeKeyIndicator.innerHTML = `<span class="text-red-400">• No Key</span>`;
+                }
+            },
+
+            // --- API KEY MANAGER (FIXED DELETE) ---
+            renderApiKeyList() {
+                const list = els.apiKeyList;
+                list.innerHTML = '';
+                
+                if (AppState.settings.apiKeys.length === 0) {
+                    list.innerHTML = '<div class="text-gray-400 text-center text-xs italic py-2">No keys added yet.</div>';
+                    return;
+                }
+
+                AppState.settings.apiKeys.forEach(k => {
+                    const div = document.createElement('div');
+                    const isActive = k.active;
+                    
+                    div.className = `flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer ${
+                        isActive 
+                        ? 'bg-blue-50 border-blue-500 dark:bg-blue-900/30 dark:border-blue-500' 
+                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                    }`;
+
+                    const masked = k.key.substring(0, 4) + '...' + k.key.substring(k.key.length - 4);
+
+                    div.innerHTML = `
+                        <div class="flex items-center gap-3 flex-1" onclick="app.setApiKeyActive(${k.id})">
+                            <div class="w-4 h-4 rounded-full border border-gray-400 flex items-center justify-center ${isActive ? 'border-blue-500 bg-blue-500' : ''}">
+                                ${isActive ? '<div class="w-1.5 h-1.5 bg-white rounded-full"></div>' : ''}
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="text-sm font-semibold dark:text-gray-200">${k.label}</span>
+                                <span class="text-xs text-gray-400 font-mono">${masked}</span>
+                            </div>
+                        </div>
+                        <button onclick="app.deleteApiKey(event, ${k.id})" class="text-gray-400 hover:text-red-500 p-2 transition-colors z-10" title="Delete Key">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    `;
+                    list.appendChild(div);
+                });
+            },
+
+            addApiKey() {
+                const label = els.newKeyLabel.value.trim() || "Untitled Key";
+                const key = els.newKeyValue.value.trim();
+
+                if (!key) return alert("Please enter an API Key.");
+                
+                const newEntry = {
+                    id: Date.now(),
+                    label: label,
+                    key: key,
+                    active: AppState.settings.apiKeys.length === 0
+                };
+
+                AppState.settings.apiKeys.push(newEntry);
+                els.newKeyLabel.value = '';
+                els.newKeyValue.value = '';
+                this.renderApiKeyList();
+            },
+
+            setApiKeyActive(id) {
+                AppState.settings.apiKeys.forEach(k => k.active = (k.id === id));
+                this.renderApiKeyList();
+            },
+
+            deleteApiKey(e, id) {
+                e.stopPropagation(); // Prevents activating the key when deleting
+                if(!confirm("Delete this API key permanently?")) return;
+                
+                AppState.settings.apiKeys = AppState.settings.apiKeys.filter(k => k.id !== id);
+                
+                if (AppState.settings.apiKeys.length > 0 && !AppState.settings.apiKeys.some(k => k.active)) {
+                    AppState.settings.apiKeys[0].active = true;
+                }
+                
+                this.renderApiKeyList();
+            },
+
+            saveSettings() {
+                AppState.settings.model = els.modelInput.value.trim();
+                AppState.settings.systemPrompt = els.systemPromptInput.value.trim();
+                this.saveState();
+                els.settingsModal.classList.add('hidden');
+            },
+
+            // --- CHAT LOGIC (FIXED DELETE UI) ---
+            createNewChat() {
+                const newChat = {
+                    id: Date.now().toString(),
+                    title: 'New Chat',
+                    messages: [],
+                    timestamp: Date.now()
+                };
+                AppState.chats.unshift(newChat);
+                this.loadChat(newChat.id);
+                this.saveState();
+                if(window.innerWidth < 768) els.sidebar.classList.add('-translate-x-full');
+            },
+
+            deleteChat(e, id) {
+                e.stopPropagation(); // Stop click from opening the chat
+                if(!confirm("Delete this conversation?")) return;
+                
+                // Convert id to string to match stored IDs safely
+                const targetId = id.toString();
+                
+                AppState.chats = AppState.chats.filter(c => c.id !== targetId);
+                
+                if(AppState.currentChatId === targetId) {
+                    if(AppState.chats.length > 0) {
+                        this.loadChat(AppState.chats[0].id);
+                    } else {
+                        this.createNewChat();
+                    }
+                } else {
+                    this.renderHistory();
+                }
+                this.saveState();
+            },
+
+            loadChat(id) {
+                AppState.currentChatId = id;
+                const chat = AppState.chats.find(c => c.id === id);
+                if(!chat) return;
+
+                this.renderHistory();
+                
+                if (chat.messages.length === 0) {
+                    els.welcomeState.classList.remove('hidden');
+                    els.messagesList.classList.add('hidden');
+                    els.messagesList.innerHTML = '';
+                } else {
+                    els.welcomeState.classList.add('hidden');
+                    els.messagesList.classList.remove('hidden');
+                    els.messagesList.innerHTML = '';
+                    chat.messages.forEach(msg => this.renderMessage(msg.role, msg.content, false));
+                    setTimeout(() => this.scrollToBottom(), 100);
+                }
+            },
+
+            renderHistory() {
+                els.chatHistoryList.innerHTML = '';
+                AppState.chats.forEach(chat => {
+                    const btn = document.createElement('div');
+                    const isActive = chat.id === AppState.currentChatId;
+                    
+                    // FIXED: Removed 'group' and hidden opacity. Delete button is now always visible but subtle.
+                    btn.className = `flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all text-sm mb-1 border border-transparent ${
+                        isActive 
+                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-semibold border-blue-200 dark:border-blue-800' 
+                        : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+                    }`;
+                    
+                    btn.innerHTML = `
+                        <div class="flex items-center gap-3 overflow-hidden w-full" onclick="app.loadChat('${chat.id}')">
+                            <i class="fa-regular fa-message text-xs opacity-70"></i>
+                            <span class="truncate pr-2">${chat.title}</span>
+                        </div>
+                        <div>
+                             <button onclick="app.deleteChat(event, '${chat.id}')" class="text-gray-400 hover:text-red-500 hover:bg-gray-300 dark:hover:bg-gray-600 p-2 rounded-lg transition-colors" title="Delete Chat">
+                                <i class="fa-solid fa-trash-can"></i>
+                             </button>
+                        </div>
+                    `;
+                    els.chatHistoryList.appendChild(btn);
+                });
+            },
+
+            // --- MESSAGING SYSTEM ---
+            async sendMessage() {
+                const text = els.promptInput.value.trim();
+                if (!text || AppState.isGenerating) return;
+
+                const activeKeyObj = AppState.settings.apiKeys.find(k => k.active);
+                if (!activeKeyObj) {
+                    alert("Please add and select an API Key in settings first.");
+                    this.toggleSettings();
+                    return;
+                }
+
+                els.promptInput.value = '';
+                els.promptInput.style.height = 'auto';
+                els.welcomeState.classList.add('hidden');
+                els.messagesList.classList.remove('hidden');
+                els.sendBtn.disabled = true;
+
+                const chat = AppState.chats.find(c => c.id === AppState.currentChatId);
+                if(chat.messages.length === 0) {
+                    chat.title = text.substring(0, 30);
+                    this.renderHistory();
+                }
+                
+                chat.messages.push({ role: 'user', content: text });
+                this.renderMessage('user', text);
+                this.scrollToBottom();
+
+                const aiMsgDiv = this.renderMessage('assistant', '<span class="animate-pulse">Thinking...</span>');
+                const contentDiv = aiMsgDiv.querySelector('.markdown-body');
+                AppState.isGenerating = true;
+
+                let fullResponse = "";
+
+                try {
+                    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                        method: "POST",
+                        headers: {
+                            "Authorization": `Bearer ${activeKeyObj.key}`,
+                            "Content-Type": "application/json",
+                            "HTTP-Referer": window.location.href,
+                            "X-Title": "Universal AI Clone"
+                        },
+                        body: JSON.stringify({
+                            model: AppState.settings.model,
+                            messages: [
+                                { role: "system", content: AppState.settings.systemPrompt },
+                                ...chat.messages
+                            ],
+                            stream: true
+                        })
+                    });
+
+                    if(!response.ok) throw new Error(`API Error: ${response.status}`);
+
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    
+                    contentDiv.innerHTML = "";
+
+                    while(true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+
+                        const chunk = decoder.decode(value);
+                        const lines = chunk.split("\n");
+                        
+                        for(const line of lines) {
+                            if(line.startsWith("data: ")) {
+                                const jsonStr = line.slice(6);
+                                if(jsonStr === "[DONE]") break;
+                                try {
+                                    const json = JSON.parse(jsonStr);
+                                    const content = json.choices[0]?.delta?.content || "";
+                                    fullResponse += content;
+                                    contentDiv.innerHTML = DOMPurify.sanitize(marked.parse(fullResponse));
+                                    contentDiv.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+                                    this.scrollToBottom();
+                                } catch(e) {}
+                            }
+                        }
+                    }
+
+                    chat.messages.push({ role: 'assistant', content: fullResponse });
+                    this.saveState();
+
+                } catch (err) {
+                    contentDiv.innerHTML += `<br><span class="text-red-500 font-bold">[Error: ${err.message}]</span>`;
+                } finally {
+                    AppState.isGenerating = false;
+                    els.sendBtn.disabled = false;
+                    els.promptInput.focus();
+                }
+            },
+
+            renderMessage(role, content, animate = true) {
+                const div = document.createElement('div');
+                const isUser = role === 'user';
+                
+                div.className = `flex w-full ${isUser ? 'justify-end' : 'justify-start'}`;
+                
+                div.innerHTML = `
+                    <div class="flex max-w-[90%] md:max-w-[80%] gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}">
+                        <div class="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs ${isUser ? 'bg-gray-200 dark:bg-gray-700 text-gray-600' : 'bg-gradient-to-tr from-blue-500 to-purple-500 text-white'}">
+                            <i class="fa-solid ${isUser ? 'fa-user' : 'fa-sparkles'}"></i>
+                        </div>
+                        <div class="markdown-body prose dark:prose-invert min-w-0 ${isUser ? 'bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-2xl rounded-tr-sm' : 'pt-1'}">
+                            ${isUser ? content.replace(/\n/g, '<br>') : DOMPurify.sanitize(marked.parse(content))}
+                        </div>
+                    </div>
+                `;
+
+                els.messagesList.appendChild(div);
+                
+                if (!isUser) {
+                    div.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+                }
+                
+                return div;
+            },
+
+            scrollToBottom() {
+                const c = document.getElementById('chatContainer');
+                c.scrollTop = c.scrollHeight;
+            }
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            marked.setOptions({ breaks: true, gfm: true });
+            app.init();
+        });
+
+    </script>
+</body>
+</html>
